@@ -1,0 +1,178 @@
+<!-- /**
+ * This code is property of
+ * MangoMan Consumer Electronics Pvt. Ltd. (MMCEPL)
+ * and reproduction or modification of whole or
+ * part of it requires consent of MMCEPL.
+ * 
+ * Author: Harshit Rastogi
+ * Copyright (c) 2014 MangoMan Consumer Electronics Pvt. Ltd.
+ */ -->
+
+ <html>
+ <head>
+  <title>Teewe Chromecast Receiver</title>
+  <script src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script type="text/javascript" src="http://jqueryrotate.googlecode.com/svn/trunk/jQueryRotate.js"></script>
+  <script src="ccjs/teewe_cc-min.js"></script>
+  <link rel="stylesheet" type="text/css" href="ccjs/css/main.css">
+</head>
+<body>
+
+  <div id="container">
+    <div id="basic-container"></div>
+  </div>
+
+  <script>
+
+  window.onload = function(){
+    showSplash();
+  }
+
+  var LOGGING_ENABLED = false;
+  var ERROR_LOG_ENABLED = true;
+
+
+  window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
+
+  // Player states : NO_MEDIA_PRESENT, LOADING, PLAYING, STOPPED, PAUSED_PLAYBACK
+
+  var customMessageBus = window.castReceiverManager.getCastMessageBus('urn:x-cast:com.teewe.client');
+
+  window.castReceiverManager.start();
+  window.castReceiverManager.onSenderDisconnected = function(event){
+    log("sender disconnected : "+event.reason);
+  }
+
+  window.castReceiverManager.onSenderConnected = function(event){
+    log('sender connected : '+event.data)
+    broadcastPlayerState(globalPlayerState);
+    broadcastCurrentMetadata(globalCurrentMedia);
+    broadcastCurrentQueue(getQueue());
+  }
+
+  customMessageBus.onMessage = function(event){
+    var message = event.data;
+    log("Received msg : "+message);
+    var requestObjJson = JSON.parse(message);
+    executeClientRequest(requestObjJson);
+  }
+
+  function broadcastMessage(message){
+    customMessageBus.broadcast(message);
+  }
+
+  function log(message){
+    if (LOGGING_ENABLED){
+      log(message);
+    }
+  }
+
+  function logError(message){
+    if (ERROR_LOG_ENABLED){
+      log(message);
+    }
+  }
+
+  function executeClientRequest(requestObjJson) {
+
+    var type = requestObjJson.action;
+
+    switch (type) {
+
+     case 'LOAD_ITEM':
+     if (requestObjJson.payload.type == 'MEDIA_ITEM'){
+
+      var mediaarray = requestObjJson.payload.payload.mediaitem;
+      var add_to_queue = requestObjJson.payload.payload.add_to_queue;
+
+      if (mediaarray.length == 1){
+        loadItem(mediaarray[0], add_to_queue);
+      } else if (mediaarray.length == 0){
+        log("Nothing to play");
+      } else if (mediaarray.length > 1){
+        loadItemMultiple(mediaarray, add_to_queue);
+      }
+
+    } else {
+      log("Unsupported payload");
+    }
+    break;
+
+    case 'PLAY':
+    playMedia();
+    break;
+
+    case 'PAUSE':
+    pauseMedia();
+    break;
+
+    case 'STOP':
+    stopMedia();
+    break;
+
+    case 'SEEK':
+    if (requestObjJson.payload.type == 'NUMBER'){
+      var seconds = requestObjJson.payload.payload.position;
+      seekMedia(seconds);
+    }
+    break;
+
+    case 'NEXT':
+    goNext();
+    break;
+
+    case 'PREVIOUS':
+    goPrevious();
+    break;
+
+    case 'ADD_TO_QUEUE':
+    if (requestObjJson.payload.type == 'MEDIA_ITEM'){
+      var mediaarray = requestObjJson.payload.payload.mediaitem;
+
+      if (mediaarray.length == 1){
+        addToQueueLast(mediaarray[0]);
+      } else if (mediaarray.length == 0){
+        log("Nothing to add to queue");
+      } else if (mediaarray.length > 1){
+        addToQueueMultipleLast(mediaarray);
+      }
+
+    } else {
+      log("Unsupported payload type");
+    }
+    break;
+
+    case 'REMOVE_FROM_QUEUE':
+    if (requestObjJson.payload.type == 'MEDIA_ITEM'){
+      var mediaarray = requestObjJson.payload.payload.mediaitem;
+
+      if(mediaarray.length >= 1){
+        removeItemFromQueue(mediaarray[0]);
+      }
+    }
+    break;
+
+    case 'CLEAR_QUEUE':
+    clearQueue();
+    break;
+
+    case 'SET_YOUTUBE_QUALITY':
+    if (requestObjJson.payload.type == 'STRING'){
+      var quality = requestObjJson.payload.payload.youtube_quality;
+      if (quality != null){
+        setYoutubeQuality(quality);
+        log("Setting youtube quality to : "+quality);
+      } else {
+        log("Received quality was null");
+      }
+    }
+    break;
+
+  }
+}
+
+
+</script>
+</body>
+</html>
